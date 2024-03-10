@@ -1,21 +1,40 @@
-# В высотном доме 5 подъездов по 20 квартир каждый. На каждом этаже 4 квартиры. Нумерация квартир идёт подряд, снизу вверх. Напишите функцию, которая получает номер квартиры и выводит на экран номер подъезда и этажа.
+from datetime import datetime
+import requests
+import time
+import config
 
-import math
 
+def main():
+    while True:
+        todayDate = datetime.now().strftime('%d.%m.%Y')
+        symbolAndPriceList = requests.get(f"{config.URL}?symbol={config.SYMBOL}")
+        
+        if symbolAndPriceList.status_code == 200:
+            nowPrice = float(symbolAndPriceList.json()['price'])
+            result = f"{config.SYMBOL}: {nowPrice}"
+            
+            try: # Если файл существует, то посчитает процент от полседней цены
+                with open(f"{todayDate} {config.SYMBOL}.txt", 'r', encoding='utf-8') as file:
+                    fileText = file.read()
+                    file.close()
 
-def main(kvartira):
-    # Получение точного номера подъезда
-    podezd = int(math.ceil(int(kvartira) / 20))
-    # Получение примерного номера этажа
-    etag = int(math.ceil(int(kvartira) / 4))
+                LastPriceSymbol = float(fileText.split('*')[-2].split()[1]) # Получение последней цены из файла
+                procent = round(100 * (nowPrice - LastPriceSymbol) / LastPriceSymbol, 4) # Сравнение настоящей цены с последней
+                result += f' {procent}% *\n'
+                print(result)
 
-    while True:  # Получение точного номера этажа
-        if etag - 5 > 0:
-            etag -= 5
+                with open(f"{todayDate} {config.SYMBOL}.txt", 'w', encoding='utf-8') as file: # Запись настоящей цены в файл
+                    file.write(str(fileText) + str(result))
+                    file.close()
+            except BaseException: # Если файла нет, то создаст его
+                result += ' | +0% *\n'
+                with open(f"{todayDate} {config.SYMBOL}.txt", 'w', encoding='utf-8') as file:
+                    file.write(result)
+                    file.close()
         else:
-            break
+            print(f"{config.ERROR_MESSAGE} | {symbolAndPriceList.text}")
 
-    print(f"Квартира {kvartira}, подъезд {podezd}, этаж {etag}")
+        time.sleep(config.TIMEOUT)
 
 
-main(67)
+main()
